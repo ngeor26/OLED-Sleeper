@@ -24,6 +24,22 @@ namespace OLED_Sleeper.Tests.UI.Helpers
         }
 
         [Fact]
+        public void BuildValidationError_WhenAudioPlaybackIsSelectedAsActiveCondition_ReturnsNull()
+        {
+            // Arrange
+            var monitor = CreateMonitor(1);
+            monitor.Configuration.IsManaged = true;
+            monitor.Configuration.Behavior = MonitorBehaviorType.Blackout;
+            monitor.Configuration.IsActiveOnAudioPlayback = true;
+
+            // Act
+            var error = MonitorSettingsValidator.BuildValidationError(new[] { monitor });
+
+            // Assert
+            Assert.Null(error);
+        }
+
+        [Fact]
         public void BuildValidationError_WhenAnInvalidMonitorIsUnmanaged_ReturnsNull()
         {
             // Arrange
@@ -45,6 +61,7 @@ namespace OLED_Sleeper.Tests.UI.Helpers
             monitor.Configuration.IsManaged = true;
             monitor.Configuration.IdleValue = null;
             monitor.Configuration.IsActiveOnMousePosition = false;
+            monitor.Configuration.IsActiveOnAudioPlayback = false;
 
             // Act
             var error = MonitorSettingsValidator.BuildValidationError(new[] { monitor });

@@ -1,5 +1,6 @@
-﻿using OLED_Sleeper.Features.MonitorBehavior.Models;
+using OLED_Sleeper.Features.MonitorBehavior.Models;
 using OLED_Sleeper.UI.Models;
+using System.Text.Json.Serialization;
 
 namespace OLED_Sleeper.Features.UserSettings.Models
 {
@@ -58,6 +59,30 @@ namespace OLED_Sleeper.Features.UserSettings.Models
         /// Gets or sets a value indicating whether the active window should reset idle state.
         /// </summary>
         public bool IsActiveOnActiveWindow { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether media playback (with audio fallback) should keep
+        /// the monitor containing the application window awake. The stored name is retained for compatibility.
+        /// </summary>
+        public bool IsActiveOnAudioPlayback { get; set; } = false;
+
+        /// <summary>Suspends automatic dimming and blackout for this monitor.</summary>
+        public bool KeepAwake { get; set; } = false;
+
+        /// <summary>
+        /// Reads the setting name used by an earlier video-playback build. It is omitted when saving so
+        /// settings are written using <see cref="IsActiveOnAudioPlayback"/> only.
+        /// </summary>
+        [JsonPropertyName("IsActiveOnVideoPlayback")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool LegacyVideoPlaybackSetting
+        {
+            get => false;
+            set
+            {
+                if (value) IsActiveOnAudioPlayback = true;
+            }
+        }
 
         /// <summary>
         /// Gets the idle timeout in milliseconds, based on <see cref="IdleValue"/> and <see cref="IdleUnit"/>.

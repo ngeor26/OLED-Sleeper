@@ -82,6 +82,10 @@ namespace OLED_Sleeper.Infrastructure.Hosting
             services.AddSingleton<IMonitorInfoProvider, MonitorInfoProvider>();
             services.AddSingleton<IMonitorLayoutService, MonitorLayoutService>();
             services.AddSingleton<IMonitorSettingsFileService, MonitorSettingsFileService>();
+            services.AddSingleton<IAudioPlaybackDetector, WindowsAudioPlaybackDetector>();
+            services.AddSingleton<IPlaybackActivityService, PlaybackActivityService>();
+            services.AddSingleton<IPlaybackSnapshotSource, WindowsPlaybackSnapshotSource>();
+            services.AddSingleton(TimeProvider.System);
             services.AddSingleton<IMonitorIdleDetectionService, MonitorIdleDetectionService>();
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<MainWindow>();

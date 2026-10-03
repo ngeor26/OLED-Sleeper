@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="OLED_Sleeper.UI.Views.MonitorConfigurationView"
+<UserControl x:Class="OLED_Sleeper.UI.Views.MonitorConfigurationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -409,6 +409,9 @@
                   <Span Foreground="{StaticResource SecondaryForegroundColor}">Keeps this monitor awake just by leaving your mouse on it.</Span><LineBreak />
                   • <Run FontWeight="SemiBold">Application is focused on this monitor:</Run><LineBreak />
                   <Span Foreground="{StaticResource SecondaryForegroundColor}">Keeps the monitor awake if it has the application you're currently using (the window you last clicked).</Span>
+                  <LineBreak />
+                  • <Run FontWeight="SemiBold">Application is playing media on this monitor:</Run><LineBreak />
+                  <Span Foreground="{StaticResource SecondaryForegroundColor}">Keeps this monitor awake during Windows media playback, including muted video. Uses audio for apps without media sessions. Playback follows visible windows after focus changes. With multiple windows in one app, the last focused window is used.</Span>
                   <LineBreak /><LineBreak />
                   <Run FontWeight="SemiBold" TextDecorations="Underline">General Condition</Run><LineBreak />
                   This option is system-wide.<LineBreak /><LineBreak />
@@ -427,6 +430,10 @@
                         IsChecked="{Binding IsActiveOnMousePosition, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}" />
                             <CheckBox Margin="0,0,0,8" Style="{StaticResource ModernCheckBox}" Content="Application is focused on this monitor"
                         IsChecked="{Binding IsActiveOnActiveWindow, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}" />
+                            <CheckBox Margin="0,0,0,8" Style="{StaticResource ModernCheckBox}" Content="Application is playing media on this monitor"
+                        IsChecked="{Binding IsActiveOnAudioPlayback, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}" />
+                            <CheckBox Margin="0,0,0,8" Style="{StaticResource ModernCheckBox}" Content="Keep this monitor awake"
+                        IsChecked="{Binding KeepAwake, UpdateSourceTrigger=PropertyChanged}" ToolTip="Prevent automatic dimming and blackout until this option is turned off and saved." />
                             <CheckBox Margin="0,0,0,0" Style="{StaticResource ModernCheckBox}" Content="System has user input"
                         IsChecked="{Binding IsActiveOnInput, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}" />
                         </StackPanel>

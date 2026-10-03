@@ -1,4 +1,4 @@
-﻿using OLED_Sleeper.Features.MonitorBehavior.Commands;
+using OLED_Sleeper.Features.MonitorBehavior.Commands;
 using OLED_Sleeper.Features.MonitorIdleDetection.Models;
 using OLED_Sleeper.Features.MonitorIdleDetection.Services.Interfaces;
 using OLED_Sleeper.Features.MonitorInformation.Models;
@@ -35,6 +35,8 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
 
         // === Dependencies & State ===
         private readonly IMediator _mediator;
+        private readonly IPlaybackActivityService _playbackActivityService;
+        private IReadOnlyList<PlaybackWindow> _playingWindows = Array.Empty<PlaybackWindow>();
 
         private CancellationTokenSource? _cancellationTokenSource;
         private List<ManagedMonitorState> _managedMonitors = new();
@@ -43,9 +45,10 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
 
         // === Construction ===
 
-        public MonitorIdleDetectionService(IMediator mediator)
+        public MonitorIdleDetectionService(IMediator mediator, IPlaybackActivityService playbackActivityService)
         {
             _mediator = mediator;
+            _playbackActivityService = playbackActivityService;
         }
 
         // === Service Lifecycle ===
@@ -104,13 +107,28 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
                 _monitorStates.Clear();
                 foreach (var monitor in _managedMonitors)
                 {
-                    _monitorStates[monitor.Settings.HardwareId] = new MonitorTimerState();
+                    _monitorStates[monitor.Settings.HardwareId] = new MonitorTimerState
+                    {
+                        DisplayNumber = monitor.DisplayNumber
+                    };
                 }
 
                 trackedCount = _managedMonitors.Count;
             }
 
             Log.Information("MonitorIdleDetectionService settings updated. Now tracking {Count} monitors.", trackedCount);
+            foreach (var monitor in _managedMonitors)
+            {
+                Log.Debug(
+                    "Idle detection settings for monitor #{DisplayNumber} ({HardwareId}): managed {IsManaged}, behavior {Behavior}, idle timeout {IdleTimeMilliseconds} ms, audio playback keeps active {IsActiveOnAudioPlayback}.",
+                    monitor.DisplayNumber,
+                    monitor.Settings.HardwareId,
+                    monitor.Settings.IsManaged,
+                    monitor.Settings.Behavior,
+                    monitor.Settings.IdleTimeMilliseconds,
+                    monitor.Settings.IsActiveOnAudioPlayback);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -141,10 +159,18 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         /// </summary>
         private void ProcessMonitors()
         {
+            bool checkAudioPlayback;
+            lock (_lock)
+            {
+                checkAudioPlayback = _managedMonitors.Any(m => m.Settings.IsActiveOnAudioPlayback);
+            }
+
             var systemState = GetSystemState();
+            var playingWindows = checkAudioPlayback ? _playbackActivityService.GetPlayingWindows(systemState.ForegroundWindowHandle) : Array.Empty<PlaybackWindow>();
 
             lock (_lock)
             {
+                _playingWindows = playingWindows;
                 foreach (var monitor in _managedMonitors)
                 {
                     ProcessSingleMonitor(monitor, systemState);
@@ -160,12 +186,36 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         private void ProcessSingleMonitor(ManagedMonitorState monitor, SystemState systemState)
         {
             var timerState = _monitorStates[monitor.Settings.HardwareId];
-            var activityReason = GetActivityReason(monitor, systemState);
+            var activityReason = GetActivityReason(monitor, timerState, systemState);
             bool hasActivityNow = activityReason != ActivityReason.None;
 
             var eventArgs = new MonitorIdleStateEventArgs(
                 monitor.Settings.HardwareId, monitor.DisplayNumber, monitor.Bounds,
-                monitor.Settings, systemState.ForegroundWindowHandle, activityReason);
+                monitor.Settings, systemState.ForegroundWindowHandle, activityReason,
+                systemState.ForegroundProcessId,
+                systemState.IsForegroundProcessPlayingAudio,
+                systemState.ForegroundWindowRect,
+                timerState.AudioPlaybackProcessId,
+                activityReason == ActivityReason.MediaPlayback);
+
+            if (timerState.LastActivityReason != activityReason)
+            {
+                Rect foregroundIntersection = Rect.Intersect(monitor.Bounds, systemState.ForegroundWindowRect);
+                Log.Debug(
+                    "Monitor #{DisplayNumber} activity reason changed from {PreviousReason} to {ActivityReason}. Audio option {AudioOptionEnabled}, foreground PID {ForegroundProcessId}, foreground audio detected {ForegroundAudioDetected}, tracked audio PID {TrackedAudioProcessId}, tracked audio active {TrackedAudioActive}, window overlaps monitor {WindowOverlapsMonitor}, monitor bounds {MonitorBounds}, foreground window bounds {ForegroundWindowBounds}.",
+                    monitor.DisplayNumber,
+                    timerState.LastActivityReason?.ToString() ?? "Uninitialized",
+                    activityReason,
+                    monitor.Settings.IsActiveOnAudioPlayback,
+                    systemState.ForegroundProcessId,
+                    systemState.IsForegroundProcessPlayingAudio,
+                    timerState.AudioPlaybackProcessId,
+                    activityReason == ActivityReason.MediaPlayback,
+                    !foregroundIntersection.IsEmpty && foregroundIntersection.Width > 0 && foregroundIntersection.Height > 0,
+                    monitor.Bounds,
+                    systemState.ForegroundWindowRect);
+                timerState.LastActivityReason = activityReason;
+            }
 
             switch (timerState.CurrentState)
             {
@@ -196,6 +246,8 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
             {
                 timerState.CurrentState = MonitorStateMachine.Counting;
                 timerState.ActivityStoppedTimestamp = DateTime.UtcNow;
+                Log.Debug("Monitor #{DisplayNumber} transitioned Active -> Counting because no enabled activity condition matched.",
+                    timerState.DisplayNumber);
             }
         }
 
@@ -210,7 +262,11 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         {
             if (hasActivityNow)
             {
+                Log.Debug("Monitor #{DisplayNumber} transitioned Counting -> Active because of {ActivityReason}.",
+                    monitor.DisplayNumber, eventArgs.Reason);
                 timerState.CurrentState = MonitorStateMachine.Active;
+                Log.Debug("Monitor #{DisplayNumber} idle countdown was reset by activity reason {ActivityReason}.",
+                    monitor.DisplayNumber, eventArgs.Reason);
             }
             else
             {
@@ -218,8 +274,18 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
                 if (elapsed.TotalMilliseconds >= monitor.Settings.IdleTimeMilliseconds)
                 {
                     timerState.CurrentState = MonitorStateMachine.Idle;
-                    Log.Information("Monitor #{DisplayNumber} has become idle after {Seconds}s of inactivity.",
-                        monitor.DisplayNumber, Math.Round(elapsed.TotalSeconds));
+                    Log.Information(
+                        "Monitor #{DisplayNumber} reached its idle timeout after {Seconds}s. Dispatching behavior {Behavior}; audio option enabled {AudioOptionEnabled}, foreground process {ForegroundProcessId}, foreground audio detected {ForegroundAudioDetected}, tracked audio PID {TrackedAudioProcessId}, tracked audio active {TrackedAudioActive}, foreground window bounds {ForegroundWindowBounds}, monitor bounds {MonitorBounds}.",
+                        monitor.DisplayNumber,
+                        Math.Round(elapsed.TotalSeconds),
+                        monitor.Settings.Behavior,
+                        monitor.Settings.IsActiveOnAudioPlayback,
+                        eventArgs.ForegroundProcessId,
+                        eventArgs.IsForegroundProcessPlayingAudio,
+                        eventArgs.AudioPlaybackProcessId,
+                        eventArgs.IsTrackedAudioPlaying,
+                        eventArgs.ForegroundWindowBounds,
+                        monitor.Bounds);
                     _mediator.SendAsync(new ApplyMonitorIdleBehaviorCommand(eventArgs));
                 }
             }
@@ -240,7 +306,8 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
                 if (!eventArgs.IsIgnored)
                 {
                     timerState.CurrentState = MonitorStateMachine.Active;
-                    Log.Information("Monitor #{DisplayNumber} is now ACTIVE.", monitor.DisplayNumber);
+                    Log.Information("Monitor #{DisplayNumber} is now ACTIVE because of {ActivityReason}.",
+                        monitor.DisplayNumber, eventArgs.Reason);
                 }
             }
         }
@@ -253,8 +320,17 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         /// <param name="monitor">The managed monitor.</param>
         /// <param name="state">Current system state.</param>
         /// <returns>The activity reason.</returns>
-        private static ActivityReason GetActivityReason(ManagedMonitorState monitor, SystemState state)
+        private ActivityReason GetActivityReason(ManagedMonitorState monitor, MonitorTimerState timerState, SystemState state)
         {
+            if (monitor.Settings.KeepAwake) return ActivityReason.KeepAwake;
+            var playbackWindow = monitor.Settings.IsActiveOnAudioPlayback ? _playingWindows.FirstOrDefault(window =>
+            {
+                var overlap = Rect.Intersect(monitor.Bounds, window.Bounds);
+                return !overlap.IsEmpty && overlap.Width > 0 && overlap.Height > 0;
+            }) : null;
+            timerState.AudioPlaybackProcessId = playbackWindow?.ProcessId ?? 0;
+            if (playbackWindow != null)
+                return ActivityReason.MediaPlayback;
             if (IsSystemInputActive(monitor, state))
                 return ActivityReason.SystemInput;
             if (IsMousePositionActive(monitor, state))
@@ -300,7 +376,7 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         /// Gathers all required system-wide state information at once.
         /// </summary>
         /// <returns>System state snapshot.</returns>
-        private static SystemState GetSystemState()
+        private SystemState GetSystemState()
         {
             uint idleTime = GetSystemIdleTimeMilliseconds();
             NativeMethods.GetCursorPos(out var nativePoint);
@@ -309,7 +385,8 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
             Rect windowRect = IsDesktopWindow(foregroundWindowHandle)
                 ? Rect.Empty
                 : GetForegroundWindowRect(foregroundWindowHandle);
-            return new SystemState(idleTime, cursorPosition, windowRect, foregroundWindowHandle);
+            NativeMethods.GetWindowThreadProcessId(foregroundWindowHandle, out uint foregroundProcessId);
+            return new SystemState(idleTime, cursorPosition, windowRect, foregroundWindowHandle, foregroundProcessId, false);
         }
 
         /// <summary>
@@ -390,6 +467,9 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
         {
             public MonitorStateMachine CurrentState { get; set; } = MonitorStateMachine.Active;
             public DateTime ActivityStoppedTimestamp { get; set; }
+            public ActivityReason? LastActivityReason { get; set; }
+            public int DisplayNumber { get; set; }
+            public uint AudioPlaybackProcessId { get; set; }
         }
 
         /// <summary>
@@ -401,13 +481,17 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Services
             public readonly Point CursorPosition;
             public readonly Rect ForegroundWindowRect;
             public readonly nint ForegroundWindowHandle;
+            public readonly uint ForegroundProcessId;
+            public readonly bool IsForegroundProcessPlayingAudio;
 
-            public SystemState(uint idleTime, Point cursorPosition, Rect windowRect, nint windowHandle)
+            public SystemState(uint idleTime, Point cursorPosition, Rect windowRect, nint foregroundWindowHandle, uint foregroundProcessId, bool isForegroundProcessPlayingAudio)
             {
                 IdleTimeMilliseconds = idleTime;
                 CursorPosition = cursorPosition;
                 ForegroundWindowRect = windowRect;
-                ForegroundWindowHandle = windowHandle;
+                ForegroundWindowHandle = foregroundWindowHandle;
+                ForegroundProcessId = foregroundProcessId;
+                IsForegroundProcessPlayingAudio = isForegroundProcessPlayingAudio;
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using OLED_Sleeper.Features.MonitorBehavior.Models;
+using OLED_Sleeper.Features.MonitorBehavior.Models;
 using OLED_Sleeper.Features.MonitorInformation.Models;
 using OLED_Sleeper.Features.UserSettings.Models;
 using OLED_Sleeper.UI.Helpers;
@@ -264,6 +264,39 @@ namespace OLED_Sleeper.UI.ViewModels
             }
         }
 
+        private bool _isActiveOnAudioPlayback;
+        private bool _initialIsActiveOnAudioPlayback;
+
+        /// <summary>
+        /// Gets or sets whether media playback, with audio fallback, keeps the monitor active.
+        /// </summary>
+        public bool IsActiveOnAudioPlayback
+        {
+            get => _isActiveOnAudioPlayback;
+            set
+            {
+                _isActiveOnAudioPlayback = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ActiveConditionsError));
+                UpdateDirtyState();
+            }
+        }
+
+        private bool _keepAwake;
+        private bool _initialKeepAwake;
+
+        public bool KeepAwake
+        {
+            get => _keepAwake;
+            set
+            {
+                _keepAwake = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ActiveConditionsError));
+                UpdateDirtyState();
+            }
+        }
+
         #endregion Properties
 
         /// <param name="monitorInfo">The monitor information model.</param>
@@ -297,7 +330,8 @@ namespace OLED_Sleeper.UI.ViewModels
                        SelectedTimeUnit != _initialSelectedTimeUnit ||
                        IsActiveOnInput != _initialIsActiveOnInput ||
                        IsActiveOnMousePosition != _initialIsActiveOnMousePosition ||
-                       IsActiveOnActiveWindow != _initialIsActiveOnActiveWindow;
+                       IsActiveOnActiveWindow != _initialIsActiveOnActiveWindow ||
+                       IsActiveOnAudioPlayback != _initialIsActiveOnAudioPlayback || KeepAwake != _initialKeepAwake;
 
             OnPropertyChanged(nameof(IsDirty));
         }
@@ -316,6 +350,8 @@ namespace OLED_Sleeper.UI.ViewModels
             _initialIsActiveOnInput = IsActiveOnInput;
             _initialIsActiveOnMousePosition = IsActiveOnMousePosition;
             _initialIsActiveOnActiveWindow = IsActiveOnActiveWindow;
+            _initialIsActiveOnAudioPlayback = IsActiveOnAudioPlayback;
+            _initialKeepAwake = KeepAwake;
             UpdateDirtyState();
         }
 
@@ -333,6 +369,8 @@ namespace OLED_Sleeper.UI.ViewModels
             IsActiveOnInput = _initialIsActiveOnInput;
             IsActiveOnMousePosition = _initialIsActiveOnMousePosition;
             IsActiveOnActiveWindow = _initialIsActiveOnActiveWindow;
+            IsActiveOnAudioPlayback = _initialIsActiveOnAudioPlayback;
+            KeepAwake = _initialKeepAwake;
             UpdateDirtyState();
         }
 
@@ -351,6 +389,8 @@ namespace OLED_Sleeper.UI.ViewModels
             IsActiveOnInput = settings.IsActiveOnInput;
             IsActiveOnMousePosition = settings.IsActiveOnMousePosition;
             IsActiveOnActiveWindow = settings.IsActiveOnActiveWindow;
+            IsActiveOnAudioPlayback = settings.IsActiveOnAudioPlayback;
+            KeepAwake = settings.KeepAwake;
         }
 
         /// <summary>
@@ -370,7 +410,9 @@ namespace OLED_Sleeper.UI.ViewModels
                 IdleUnit = SelectedTimeUnit,
                 IsActiveOnInput = IsActiveOnInput,
                 IsActiveOnMousePosition = IsActiveOnMousePosition,
-                IsActiveOnActiveWindow = IsActiveOnActiveWindow
+                IsActiveOnActiveWindow = IsActiveOnActiveWindow,
+                IsActiveOnAudioPlayback = IsActiveOnAudioPlayback,
+                KeepAwake = KeepAwake
             };
         }
 
@@ -417,6 +459,8 @@ namespace OLED_Sleeper.UI.ViewModels
                     case nameof(IsActiveOnInput):
                     case nameof(IsActiveOnMousePosition):
                     case nameof(IsActiveOnActiveWindow):
+                    case nameof(IsActiveOnAudioPlayback):
+                    case nameof(KeepAwake):
                         result = ValidateActiveConditions();
                         break;
 
@@ -445,7 +489,7 @@ namespace OLED_Sleeper.UI.ViewModels
         /// <returns>An error message if invalid, otherwise null.</returns>
         private string? ValidateActiveConditions()
         {
-            if (!IsActiveOnInput && !IsActiveOnMousePosition && !IsActiveOnActiveWindow)
+            if (!KeepAwake && !IsActiveOnInput && !IsActiveOnMousePosition && !IsActiveOnActiveWindow && !IsActiveOnAudioPlayback)
                 return "At least one 'Consider Active When' option must be selected.";
             return null;
         }

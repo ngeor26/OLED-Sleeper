@@ -1,4 +1,4 @@
-﻿namespace OLED_Sleeper.Features.MonitorIdleDetection.Models
+namespace OLED_Sleeper.Features.MonitorIdleDetection.Models
 {
     /// <summary>
     /// Defines the specific reason why a monitor is considered active during idle detection.
@@ -24,6 +24,13 @@
         /// <summary>
         /// System input (keyboard or mouse activity) was detected.
         /// </summary>
-        SystemInput
+        SystemInput,
+
+        /// <summary>
+        /// The foreground application has an active Windows audio session.
+        /// </summary>
+        AudioPlayback,
+        MediaPlayback,
+        KeepAwake
     }
 }

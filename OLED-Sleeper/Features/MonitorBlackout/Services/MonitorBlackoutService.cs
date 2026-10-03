@@ -1,5 +1,6 @@
 using OLED_Sleeper.Features.MonitorBlackout.Services.Interfaces;
 using OLED_Sleeper.Infrastructure.Runtime.Interfaces;
+using Serilog;
 using System.Windows;
 
 namespace OLED_Sleeper.Features.MonitorBlackout.Services
@@ -52,7 +53,11 @@ namespace OLED_Sleeper.Features.MonitorBlackout.Services
             {
                 lock (_overlayLock)
                 {
-                    if (_overlayWindows.ContainsKey(hardwareId)) return;
+                    if (_overlayWindows.ContainsKey(hardwareId))
+                    {
+                        Log.Debug("Blackout overlay for monitor {HardwareId} is already visible; ignoring duplicate request.", hardwareId);
+                        return;
+                    }
                 }
 
                 var overlay = _overlayWindowFactory.Create();
@@ -69,6 +74,9 @@ namespace OLED_Sleeper.Features.MonitorBlackout.Services
 
                     _overlayWindows[hardwareId] = new OverlayRegistration(overlay, hwnd);
                 }
+
+                Log.Information("Blackout overlay shown for monitor {HardwareId} at bounds {Bounds} with window handle {WindowHandle}.",
+                    hardwareId, bounds, hwnd);
             });
         }
 
@@ -81,7 +89,11 @@ namespace OLED_Sleeper.Features.MonitorBlackout.Services
 
                 lock (_overlayLock)
                 {
-                    if (!_overlayWindows.Remove(hardwareId, out registration)) return;
+                    if (!_overlayWindows.Remove(hardwareId, out registration))
+                    {
+                        Log.Debug("No blackout overlay is registered for monitor {HardwareId}; nothing to hide.", hardwareId);
+                        return;
+                    }
 
                     // An overlay reports a zero handle once it is closed, so the handle recorded when it
                     // was shown is used here.
@@ -92,6 +104,7 @@ namespace OLED_Sleeper.Features.MonitorBlackout.Services
                 }
 
                 registration.Window.Close();
+                Log.Information("Blackout overlay hidden for monitor {HardwareId}.", hardwareId);
             });
         }
 

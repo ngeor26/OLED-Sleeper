@@ -26,6 +26,19 @@ namespace OLED_Sleeper.Features.MonitorBehavior.Handlers
         public async Task HandleAsync(ApplyMonitorIdleBehaviorCommand command)
         {
             var e = command.EventArgs;
+            Log.Debug(
+                "Applying idle behavior {Behavior} to monitor #{DisplayNumber} ({HardwareId}). Idle event reason {ActivityReason}, audio option enabled {AudioOptionEnabled}, foreground PID {ForegroundProcessId}, foreground audio detected {ForegroundAudioDetected}, tracked audio PID {TrackedAudioProcessId}, tracked audio active {TrackedAudioActive}, foreground window bounds {ForegroundWindowBounds}.",
+                e.Settings.Behavior,
+                e.DisplayNumber,
+                e.HardwareId,
+                e.Reason,
+                e.Settings.IsActiveOnAudioPlayback,
+                e.ForegroundProcessId,
+                e.IsForegroundProcessPlayingAudio,
+                e.AudioPlaybackProcessId,
+                e.IsTrackedAudioPlaying,
+                e.ForegroundWindowBounds);
+
             switch (e.Settings.Behavior)
             {
                 case MonitorBehaviorType.Blackout:

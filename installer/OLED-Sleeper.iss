@@ -10,6 +10,7 @@
 #endif
 
 [Setup]
+MinVersion=10.0.17763
 ; Unique application identifier used by Windows for installation tracking.
 AppId={{782DD1AF-DB60-48D7-8787-0838B581E16F}}
 

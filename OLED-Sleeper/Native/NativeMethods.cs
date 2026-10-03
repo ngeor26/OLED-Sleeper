@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace OLED_Sleeper.Native
 {
@@ -8,6 +9,54 @@ namespace OLED_Sleeper.Native
     /// </summary>
     internal static class NativeMethods
     {
+        public delegate bool EnumWindowsProc(nint hwnd, nint parameter);
+
+        [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")]
+        public static extern int DwmGetWindowCloaked(nint hwnd, int attribute, out int value, int size);
+
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc callback, nint parameter);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(nint hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(nint hwnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetWindowTextLength(nint hwnd);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetApplicationUserModelId(nint process, ref uint length, StringBuilder appId);
+
+        public const uint TH32CS_SNAPPROCESS = 0x00000002;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct PROCESSENTRY32
+        {
+            public uint dwSize;
+            public uint cntUsage;
+            public uint th32ProcessID;
+            public UIntPtr th32DefaultHeapID;
+            public uint th32ModuleID;
+            public uint cntThreads;
+            public uint th32ParentProcessID;
+            public int pcPriClassBase;
+            public uint dwFlags;
+
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szExeFile;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern bool Process32First(Microsoft.Win32.SafeHandles.SafeFileHandle hSnapshot, ref PROCESSENTRY32 lppe);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern bool Process32Next(Microsoft.Win32.SafeHandles.SafeFileHandle hSnapshot, ref PROCESSENTRY32 lppe);
+
         #region User Input and Window Management
 
         /// <summary>
@@ -53,6 +102,21 @@ namespace OLED_Sleeper.Native
         /// <seealso href="https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getforegroundwindow"/>
         [DllImport("user32.dll")]
         public static extern IntPtr GetForegroundWindow();
+
+        /// <summary>
+        /// Retrieves the identifier of the thread that created the specified window, and optionally the process identifier.
+        /// </summary>
+        /// <param name="hWnd">A handle to the window.</param>
+        /// <param name="lpdwProcessId">A pointer to a variable that receives the process identifier.</param>
+        /// <returns>The identifier of the thread that created the window.</returns>
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        /// <summary>
+        /// Copies the title of a window into a buffer.
+        /// </summary>
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
         /// <summary>
         /// Retrieves a handle to the display monitor that has the largest area of intersection with a specified window.

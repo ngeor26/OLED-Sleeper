@@ -35,6 +35,31 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Models
         public nint ForegroundWindowHandle { get; }
 
         /// <summary>
+        /// Gets the process ID of the foreground window.
+        /// </summary>
+        public uint ForegroundProcessId { get; }
+
+        /// <summary>
+        /// Gets whether an active audio session was found for the foreground application or its descendants.
+        /// </summary>
+        public bool IsForegroundProcessPlayingAudio { get; }
+
+        /// <summary>
+        /// Gets the process associated with the monitor's currently tracked audio playback.
+        /// </summary>
+        public uint AudioPlaybackProcessId { get; }
+
+        /// <summary>
+        /// Gets whether the tracked application's audio session is currently active.
+        /// </summary>
+        public bool IsTrackedAudioPlaying { get; }
+
+        /// <summary>
+        /// Gets the foreground window bounds at the time of the event.
+        /// </summary>
+        public Rect ForegroundWindowBounds { get; }
+
+        /// <summary>
         /// Gets the reason why the monitor is considered active (e.g., mouse, window, input).
         /// </summary>
         public ActivityReason Reason { get; }
@@ -51,13 +76,23 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Models
         /// <param name="settings">The user-configured settings for the monitor.</param>
         /// <param name="foregroundWindowHandle">The handle of the foreground window at the time of the event.</param>
         /// <param name="reason">The reason why the monitor is considered active.</param>
+        /// <param name="foregroundProcessId">The foreground window process ID.</param>
+        /// <param name="isForegroundProcessPlayingAudio">Whether an active audio session was found.</param>
+        /// <param name="foregroundWindowBounds">The foreground window bounds at the time of the event.</param>
+        /// <param name="audioPlaybackProcessId">The audio process currently associated with the monitor.</param>
+        /// <param name="isTrackedAudioPlaying">Whether the tracked process currently has active audio.</param>
         public MonitorIdleStateEventArgs(
             string hardwareId,
             int displayNumber,
             Rect bounds,
             MonitorSettings settings,
             nint foregroundWindowHandle,
-            ActivityReason reason)
+            ActivityReason reason,
+            uint foregroundProcessId = 0,
+            bool isForegroundProcessPlayingAudio = false,
+            Rect foregroundWindowBounds = default,
+            uint audioPlaybackProcessId = 0,
+            bool isTrackedAudioPlaying = false)
         {
             HardwareId = hardwareId;
             DisplayNumber = displayNumber;
@@ -65,6 +100,11 @@ namespace OLED_Sleeper.Features.MonitorIdleDetection.Models
             Settings = settings;
             ForegroundWindowHandle = foregroundWindowHandle;
             Reason = reason;
+            ForegroundProcessId = foregroundProcessId;
+            IsForegroundProcessPlayingAudio = isForegroundProcessPlayingAudio;
+            ForegroundWindowBounds = foregroundWindowBounds;
+            AudioPlaybackProcessId = audioPlaybackProcessId;
+            IsTrackedAudioPlaying = isTrackedAudioPlaying;
         }
     }
 }

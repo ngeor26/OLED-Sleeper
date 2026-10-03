@@ -1,4 +1,4 @@
-﻿# OLED Sleeper 😴 – Blackout or Dim Secondary Monitors on Windows
+# OLED Sleeper 😴 – Blackout or Dim Secondary Monitors on Windows
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -26,20 +26,21 @@ OLED Sleeper monitors each screen for activity. When a monitor is idle for a set
 
 ## Features
 
-* **Three Idle Detection Modes:** Customize how the application determines if a monitor is idle:
+* **Per-Monitor Idle Detection:** Choose which conditions keep each monitor active:
     * **Mouse:** Tracks cursor movement specifically on the target monitor.
     * **Focused Application:** Tracks activity within the active window currently displayed on that monitor.
     * **System-Wide Input:** Tracks overall keyboard and mouse input across the entire system (similar to standard Windows idle detection).
-* **Per-Monitor Control:** Blackout or dim any monitor independently.
+    * **Media Playback:** Uses Windows media sessions to detect playing/paused state, including muted video, with audio detection as a fallback for other applications. Playback follows visible application windows across monitors and continues after focus changes. When an application has multiple windows, the last focused window is used; Windows does not identify the exact video tab or window.
+* **Per-Monitor Control:** Blackout or dim any monitor independently. Enable **Keep this monitor awake** and save to suspend automatic actions for that monitor.
 * **Two Action Modes:** Full blackout or dimming (DDC/CI supported).
 * **Instant Wake-Up:** Restore the monitor immediately when activity is detected.
-* **Native WPF Application:** Built from the ground up using native Win32 calls. Requires no external dependencies or third-party tools.
+* **Native WPF Application:** Uses Windows APIs for monitor and audio-session detection; no separate runtime tools are required.
 
 ---
 
 ## Requirements
 
-* **Operating System:** Windows 10 or 11
+* **Operating System:** Windows 10 version 1809 or newer, or Windows 11
 * **DDC/CI Support (for Dimming Mode):** Dimming requires a monitor that supports DDC/CI brightness control via VCP codes. Most modern monitors support this, but it is not guaranteed on all displays.
 
 ---
